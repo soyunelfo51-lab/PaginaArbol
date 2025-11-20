@@ -1,0 +1,667 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nox | Protocolo Zero</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&display=swap" rel="stylesheet">
+    
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+    <style>
+        /* --- CONFIGURACIÓN VISUAL --- */
+        :root {
+            --neon-blue: #00f3ff; --neon-purple: #bc13fe; --neon-gold: #ffd700;
+            --danger-red: #ff2a2a; --dark-bg: #050510;
+            --glass-bg: rgba(20, 20, 40, 0.7); --glass-border: rgba(255, 255, 255, 0.1);
+            --line-color: #3a3a50;
+        }
+
+        * { box-sizing: border-box; }
+        html { scroll-behavior: smooth; }
+
+        body {
+            font-family: 'Rajdhani', sans-serif;
+            background-color: var(--dark-bg);
+            color: #e0e0e0;
+            margin: 0;
+            min-height: 100vh;
+            overflow-x: hidden;
+            padding-bottom: 120px; 
+        }
+
+        /* --- FONDO ANIMADO --- */
+        .space-bg { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%); z-index: -5; overflow: hidden; }
+        .star { position: absolute; width: 2px; height: 2px; background: white; border-radius: 50%; animation: twinkle 5s infinite; }
+        .stars-layer { width: 1px; height: 1px; background: transparent; box-shadow: 10vw 10vh #fff, 20vw 40vh #fff, 50vw 80vh #fff, 80vw 10vh #fff, 90vw 50vh #fff, 30vw 20vh #fff, 60vw 30vh #fff; animation: starMove 100s linear infinite; }
+        @keyframes starMove { from { transform: translateY(0); } to { transform: translateY(-1000px); } }
+        @keyframes twinkle { 0%, 100% { opacity: 0.3; } 50% { opacity: 1; } }
+
+        /* --- GLITCH ERROR OVERLAY --- */
+        #glitch-overlay {
+            display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            z-index: 9999; background: black;
+            justify-content: center; align-items: center; overflow: hidden;
+        }
+        #glitch-img {
+            width: 100%; height: 100%; object-fit: cover; opacity: 0.8;
+            mix-blend-mode: hard-light; animation: glitchFlash 0.15s infinite;
+            position: absolute; top:0; left:0;
+        }
+        .glitch-text-overlay {
+            position: relative; z-index: 10000;
+            font-size: 5em; color: var(--neon-purple);
+            font-weight: 900; text-transform: uppercase; letter-spacing: 5px;
+            text-shadow: 0 0 20px var(--neon-purple), 4px 4px 0px black;
+            animation: textShake 0.2s infinite; text-align: center;
+        }
+        @keyframes textShake { 0% { transform: translate(0,0); } 25% { transform: translate(-5px, 5px); } 50% { transform: translate(5px, -5px); opacity: 0.8; } 75% { transform: translate(-5px, -5px); } 100% { transform: translate(0,0); opacity: 1; } }
+        @keyframes glitchFlash { 0% { transform: scale(1); filter: hue-rotate(0deg); opacity: 1; } 50% { transform: scale(1.02); filter: hue-rotate(90deg); opacity: 0.6; } }
+        .shake-screen { animation: shake 0.5s cubic-bezier(.36,.07,.19,.97) both infinite; }
+        @keyframes shake { 10%, 90% { transform: translate3d(-4px, 0, 0); } 50% { transform: translate3d(4px, 0, 0); } }
+
+        /* --- INTRO & LOGIN --- */
+        #intro-wrapper { width: 100%; display: block; }
+        #welcome-screen { height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; position: relative; z-index: 10; text-align: center; }
+        .zero-point-orb { width: 200px; height: 200px; background: radial-gradient(circle, #fff, var(--neon-blue), var(--neon-purple), transparent 70%); border-radius: 50%; box-shadow: 0 0 50px var(--neon-blue), 0 0 100px var(--neon-purple); margin-bottom: 40px; animation: zeroPointPulse 4s infinite alternate; position: relative; }
+        .zero-point-orb::after { content: ''; position: absolute; top: -10px; left: -10px; right: -10px; bottom: -10px; border-radius: 50%; border: 2px dashed rgba(255,255,255,0.3); animation: spinOrb 10s linear infinite; }
+        @keyframes zeroPointPulse { 0% { transform: scale(1); opacity: 0.8; } 100% { transform: scale(1.1); opacity: 1; } }
+        @keyframes spinOrb { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+        .welcome-title { font-size: 4em; margin: 0; text-transform: uppercase; letter-spacing: 10px; background: linear-gradient(90deg, #fff, var(--neon-blue)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; text-shadow: 0 0 20px var(--neon-blue); animation: glitchText 3s infinite; }
+        .welcome-subtitle { font-size: 1.2em; color: var(--neon-purple); letter-spacing: 5px; margin-top: 10px; text-transform: uppercase; }
+        .scroll-down-btn { margin-top: 60px; background: transparent; border: 1px solid var(--neon-blue); color: var(--neon-blue); padding: 15px 40px; font-size: 18px; cursor: pointer; text-transform: uppercase; letter-spacing: 3px; transition: 0.3s; border-radius: 30px; }
+        .scroll-down-btn:hover { background: var(--neon-blue); color: black; box-shadow: 0 0 30px var(--neon-blue); }
+        .scroll-arrow { margin-top: 20px; font-size: 24px; color: white; animation: bounceArrow 2s infinite; }
+        @keyframes bounceArrow { 0%, 100% { transform: translateY(0); opacity: 0.5; } 50% { transform: translateY(10px); opacity: 1; } }
+
+        #login-screen { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; width: 100%; position: relative; z-index: 10; background: linear-gradient(to bottom, transparent, rgba(5,5,16,0.95) 20%); }
+        .author-avatar-login { width: 140px; height: 140px; border-radius: 50%; border: 3px solid var(--neon-blue); box-shadow: 0 0 30px var(--neon-blue), inset 0 0 20px var(--neon-blue); margin-bottom: 25px; object-fit: cover; animation: pulseAvatar 3s infinite ease-in-out; }
+        @keyframes pulseAvatar { 0%, 100% { transform: scale(1); box-shadow: 0 0 30px var(--neon-blue); } 50% { transform: scale(1.05); box-shadow: 0 0 50px var(--neon-blue); } }
+        .login-box { background: var(--glass-bg); border: 1px solid var(--neon-purple); padding: 40px; border-radius: 12px; box-shadow: 0 0 40px rgba(188, 19, 254, 0.2); text-align: center; width: 320px; position: relative; z-index: 10; }
+        input { display: block; width: 100%; padding: 12px; margin: 15px 0; background: rgba(0,0,0,0.5); border: 1px solid #444; color: var(--neon-blue); border-radius: 4px; font-family: 'Rajdhani', sans-serif; font-weight: bold; letter-spacing: 1px; transition: 0.3s; }
+        input:focus { outline: none; border-color: var(--neon-blue); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); }
+        button { background: linear-gradient(90deg, var(--neon-purple), var(--neon-blue)); border: none; padding: 12px; color: white; font-weight: 700; font-size: 16px; cursor: pointer; border-radius: 4px; transition: 0.3s; text-transform: uppercase; letter-spacing: 2px; width: 100%; margin-top: 10px; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+        button:hover { transform: translateY(-2px); box-shadow: 0 0 20px var(--neon-purple); }
+        .staff-login-area { margin-top: 40px; padding: 10px 20px; border-top: 1px solid #333; width: 300px; text-align: center; }
+        .staff-login-area p { margin: 0 0 8px 0; color: #555; font-size: 10px; letter-spacing: 2px; }
+        #staff-code-input { background: transparent; border: 1px solid #333; color: var(--danger-red); text-align: center; width: 100%; padding: 8px; font-size: 12px; }
+        #staff-code-input:focus { border-color: var(--danger-red); box-shadow: 0 0 10px rgba(255, 42, 42, 0.2); }
+
+        /* --- UI PRINCIPAL --- */
+        #main-interface { display: none; padding: 20px; animation: fadeIn 1s ease-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .resources-hud { display: flex; justify-content: center; gap: 30px; margin-bottom: 20px; }
+        .resource-circle { width: 70px; height: 70px; border-radius: 50%; display: flex; flex-direction: column; align-items: center; justify-content: center; font-weight: 700; border: 2px solid; background: rgba(0,0,0,0.6); backdrop-filter: blur(5px); position: relative; }
+        .res-blue { border-color: var(--neon-blue); color: var(--neon-blue); box-shadow: 0 0 15px var(--neon-blue); }
+        .res-yellow { border-color: var(--neon-gold); color: var(--neon-gold); box-shadow: 0 0 15px var(--neon-gold); }
+        .res-purple { border-color: var(--neon-purple); color: var(--neon-purple); box-shadow: 0 0 15px var(--neon-purple); }
+        .res-label { font-size: 9px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: -2px; color: #fff; opacity: 0.8;}
+        .res-val { font-size: 22px; }
+        #username-display { text-align: center; font-size: 1.8em; color: white; text-shadow: 0 0 10px var(--neon-blue); margin-bottom: 30px; border-bottom: 1px solid var(--neon-blue); display: inline-block; padding: 0 20px 5px 20px; position: relative; left: 50%; transform: translateX(-50%); }
+
+        /* --- ÁRBOL --- */
+        .tree-container { display: flex; overflow-x: auto; width: 100%; padding-bottom: 30px; scrollbar-width: thin; scrollbar-color: var(--neon-blue) #111; }
+        .tree-container::-webkit-scrollbar { height: 8px; }
+        .tree-container::-webkit-scrollbar-track { background: #111; }
+        .tree-container::-webkit-scrollbar-thumb { background: var(--neon-blue); border-radius: 4px; }
+        .tree { white-space: nowrap; padding: 20px; margin: 0 auto; min-width: fit-content; }
+        .tree ul { padding-top: 25px; position: relative; display: flex; justify-content: center; }
+        .tree li { float: left; text-align: center; list-style-type: none; position: relative; padding: 25px 8px 0 8px; }
+        .tree li::before, .tree li::after { content: ''; position: absolute; top: 0; right: 50%; border-top: 1px solid var(--line-color); width: 50%; height: 25px; z-index: -1; }
+        .tree li::after { right: auto; left: 50%; border-left: 1px solid var(--line-color); }
+        .tree li:only-child::after, .tree li:only-child::before { display: none; }
+        .tree li:only-child { padding-top: 0; }
+        .tree li:first-child::before, .tree li:last-child::after { border: 0 none; }
+        .tree li:last-child::before { border-right: 1px solid var(--line-color); border-radius: 0 5px 0 0; }
+        .tree li:first-child::after { border-radius: 5px 0 0 0; }
+        .tree ul ul::before { content: ''; position: absolute; top: 0; left: 50%; border-left: 1px solid var(--line-color); width: 0; height: 25px; }
+        .tree li.unlocked::before, .tree li.unlocked::after, .tree li.unlocked > ul ul::before { border-color: var(--neon-blue); box-shadow: 0 0 8px var(--neon-blue); }
+
+        /* NODOS */
+        .node { border: 1px solid #444; background: rgba(10, 10, 20, 0.9); padding: 10px 12px; text-decoration: none; color: #888; font-size: 12px; display: inline-flex; align-items: center; gap: 8px; border-radius: 4px; transition: all 0.3s; cursor: pointer; min-width: 100px; max-width: 140px; white-space: normal; line-height: 1.2; position: relative; text-align: left; clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px); }
+        .node-icon { width: 28px; height: 28px; border-radius: 4px; border: 1px solid var(--line-color); padding: 2px; filter: grayscale(80%); transition: 0.3s; }
+        .node.unlocked { border-color: var(--neon-blue); color: #fff; background: rgba(0, 243, 255, 0.15); box-shadow: 0 0 15px rgba(0, 243, 255, 0.4); }
+        .node.unlocked .node-icon { border-color: var(--neon-blue); filter: grayscale(0%) drop-shadow(0 0 5px var(--neon-blue)); }
+        .node.locked-forever { border-color: #222; background: #080808; color: #333; cursor: not-allowed; opacity: 0.7; }
+        .node.locked-forever::after { content: '🔒'; position: absolute; top: -8px; right: -5px; font-size: 12px; filter: grayscale(100%);}
+        .node:hover:not(.locked-forever) { transform: scale(1.1); z-index: 100; background: var(--neon-purple); border-color: white; color: white; box-shadow: 0 0 25px var(--neon-purple); }
+        .desc { font-size: 9px; color: #aaa; display: block; margin-top: 3px; font-style: italic; font-weight: normal;}
+
+        /* --- FOOTER --- */
+        footer { position: fixed; bottom: 0; left: 0; width: 100%; padding: 20px; border-top: 1px solid var(--neon-purple); background: rgba(5, 5, 10, 0.98); z-index: 200; display: flex; justify-content: center; align-items: center; backdrop-filter: blur(8px); box-shadow: 0 -5px 30px rgba(0,0,0,0.9); }
+        .footer-content { display: flex; align-items: center; gap: 20px; }
+        .footer-img { width: 60px; height: 60px; border-radius: 50%; object-fit: cover; border: 2px solid var(--neon-blue); box-shadow: 0 0 15px var(--neon-blue); }
+
+        /* --- ADMIN PANEL --- */
+        #admin-panel { display: none; padding: 40px; background: #0a0a12; min-height: 100vh; }
+        .admin-header { color: var(--danger-red); border-bottom: 1px solid var(--danger-red); margin-bottom: 20px; font-family: 'Rajdhani'; text-transform: uppercase;}
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; color: #ccc; font-size: 14px; }
+        th, td { border: 1px solid #333; padding: 8px; text-align: center; }
+        th { background: #111; color: var(--danger-red); text-transform: uppercase; letter-spacing: 1px;}
+        tr:hover { background: #111; }
+        .btn-admin { padding: 4px 8px; font-size: 10px; margin: 0 2px; cursor: pointer; border:none; border-radius: 2px; text-transform: uppercase; font-weight: bold;}
+        .btn-plus { background: var(--neon-blue); color: #000; }
+        .btn-minus { background: #333; color: #fff; }
+        .btn-del { background: var(--danger-red); color: white; }
+        .btn-view { background: var(--neon-gold); color: black; }
+        #admin-back-btn { display: none; position: fixed; top: 20px; right: 20px; background: var(--danger-red); color: white; padding: 10px 20px; z-index: 1000; box-shadow: 0 0 15px var(--danger-red); border:none; font-weight: bold; cursor: pointer; clip-path: polygon(10px 0, 100% 0, 100% calc(100% - 10px), calc(100% - 10px) 100%, 0 100%, 0 10px); }
+
+    </style>
+</head>
+<body>
+
+    <div id="glitch-overlay">
+        <img id="glitch-img" src="https://fortnite-api.com/images/cosmetics/br/lsid_375_guavaevent_9gxe3/background.png" alt="ERROR SISTEMA"> 
+        <h1 class="glitch-text-overlay">ERROR DEL SISTEMA</h1>
+    </div>
+
+    <div class="space-bg">
+        <div class="stars-layer"></div>
+        <div class="stars-layer" style="animation-duration: 150s; opacity: 0.5;"></div>
+    </div>
+
+    <div id="intro-wrapper">
+        <section id="welcome-screen">
+            <div class="zero-point-orb"></div>
+            <h1 class="welcome-title">NOX PROTOCOL</h1>
+            <div class="welcome-subtitle">SISTEMA DE EVOLUCIÓN HABILITADO</div>
+            <button class="scroll-down-btn" onclick="scrollToLogin()">Iniciar Sistema</button>
+            <div class="scroll-arrow">▼</div>
+        </section>
+
+        <div id="login-screen">
+            <img src="https://media1.tenor.com/m/HON-W7311M4AAAAd/fortnite-point-zero.gif" alt="Punto Cero" class="author-avatar-login">
+            <div class="login-box">
+                <h1>ACCESO AGENTE</h1>
+                <input type="text" id="username" placeholder="NOMBRE CLAVE">
+                <input type="password" id="password" placeholder="CONTRASEÑA">
+                <button onclick="handleLogin()">CONECTAR AL BUCLE</button>
+            </div>
+            <div class="staff-login-area">
+                <p>// ACCESO CLASIFICADO //</p>
+                <input type="password" id="staff-code-input" placeholder="CÓDIGO DE MANDO" onkeydown="checkStaffCode(event)">
+            </div>
+        </div>
+    </div>
+
+    <div id="main-interface">
+        <button id="admin-back-btn" onclick="exitViewMode()">CERRAR VISTA REMOTA</button>
+
+        <div class="resources-hud">
+            <div class="resource-circle res-blue"><span class="res-label">Pts Evo</span><span class="res-val" id="hud-blue">0</span></div>
+            <div class="resource-circle res-yellow"><span class="res-label">Evolución</span><span class="res-val" id="hud-yellow">0</span></div>
+            <div class="resource-circle res-purple"><span class="res-label">Misterio</span><span class="res-val" id="hud-purple">0</span></div>
+        </div>
+
+        <div id="username-display">Agente: Nox</div>
+
+        <div class="tree-container">
+            <div class="tree">
+                <ul>
+                    <li>
+                        <div class="node unlocked" id="root-node">
+                            <img src="https://cdn-icons-png.flaticon.com/512/1177/1177568.png" class="node-icon" alt="User">
+                            <div><span id="tree-username">Usuario</span></div>
+                        </div>
+                        <ul>
+                            <li>
+                                <div class="node" onclick="unlockNode(this, 'stats_base')" id="stats_base">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/2503/2503493.png" class="node-icon" alt="Stats">
+                                    <div>Stats<span class="desc">+100kg F/R</span></div>
+                                </div>
+                                <ul>
+                                    <li><div class="node" onclick="tryUnlockMutual(this, 's_fuerza', ['s_resis'])" id="s_fuerza">Fuerza</div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'f_200')" id="f_200">+200</div>
+                                            <ul><li><div class="node" onclick="unlockNode(this, 'f_500')" id="f_500">+500</div>
+                                                <ul><li><div class="node" onclick="unlockNode(this, 'f_1200')" id="f_1200">+1200</div></li></ul>
+                                            </li></ul>
+                                        </li></ul>
+                                    </li>
+                                    <li><div class="node" onclick="tryUnlockMutual(this, 's_resis', ['s_fuerza'])" id="s_resis">Resis.</div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'r_200')" id="r_200">+200</div>
+                                            <ul><li><div class="node" onclick="unlockNode(this, 'r_500')" id="r_500">+500</div>
+                                                <ul><li><div class="node" onclick="unlockNode(this, 'r_1200')" id="r_1200">+1200</div></li></ul>
+                                            </li></ul>
+                                        </li></ul>
+                                    </li>
+                                </ul>
+                            </li>
+
+                            <li>
+                                <div class="node" onclick="unlockNode(this, 'dones_base')" id="dones_base">
+                                    <img src="https://cdn-icons-png.flaticon.com/512/5727/5727965.png" class="node-icon" alt="Dones">
+                                    <div>Mejorar Dones<span class="desc">Ver a Nox</span></div>
+                                </div>
+                                <ul>
+                                    <li><div class="node" onclick="unlockNode(this, 'cat_atk')" id="cat_atk">
+                                        <img src="https://cdn-icons-png.flaticon.com/512/9458/9458472.png" class="node-icon" alt="Atk">
+                                        <div>Ataque</div></div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'atk_h1')" id="atk_h1">H1</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'atk_h1_dmg', ['atk_h1_sz'])" id="atk_h1_dmg">Daño</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'atk_h1_sz', ['atk_h1_dmg'])" id="atk_h1_sz">Tamaño</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'atk_h2')" id="atk_h2">H2</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'atk_h2_dmg', ['atk_h2_sz'])" id="atk_h2_dmg">Daño</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'atk_h2_sz', ['atk_h2_dmg'])" id="atk_h2_sz">Tamaño</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'atk_h3')" id="atk_h3">H3</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'atk_h3_dmg', ['atk_h3_sz'])" id="atk_h3_dmg">Daño</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'atk_h3_sz', ['atk_h3_dmg'])" id="atk_h3_sz">Tamaño</div></li></ul></li>
+                                        </ul>
+                                    </li>
+                                    <li><div class="node" onclick="unlockNode(this, 'cat_def')" id="cat_def">
+                                        <img src="https://cdn-icons-png.flaticon.com/512/13665/13665746.png" class="node-icon" alt="Def">
+                                        <div>Defensa</div></div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'def_h1')" id="def_h1">H1</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'def_h1_res', ['def_h1_dur'])" id="def_h1_res">Resis.</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'def_h1_dur', ['def_h1_res'])" id="def_h1_dur">Duración</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'def_h2')" id="def_h2">H2</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'def_h2_res', ['def_h2_dur'])" id="def_h2_res">Resis.</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'def_h2_dur', ['def_h2_res'])" id="def_h2_dur">Duración</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'def_h3')" id="def_h3">H3</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'def_h3_res', ['def_h3_dur'])" id="def_h3_res">Resis.</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'def_h3_dur', ['def_h3_res'])" id="def_h3_dur">Duración</div></li></ul></li>
+                                        </ul>
+                                    </li>
+                                    <li><div class="node" onclick="unlockNode(this, 'cat_inv')" id="cat_inv">
+                                        <img src="https://cdn-icons-png.flaticon.com/512/2182/2182893.png" class="node-icon" alt="Inv">
+                                        <div>Invocación</div></div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'inv_h1')" id="inv_h1">H1</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'inv_h1_tm', ['inv_h1_pw', 'inv_h1_st'])" id="inv_h1_tm">Tiempo</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'inv_h1_pw', ['inv_h1_tm', 'inv_h1_st'])" id="inv_h1_pw">Poder</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'inv_h1_st', ['inv_h1_tm', 'inv_h1_pw'])" id="inv_h1_st">Stats</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'inv_h2')" id="inv_h2">H2</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'inv_h2_tm', ['inv_h2_pw', 'inv_h2_st'])" id="inv_h2_tm">Tiempo</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'inv_h2_pw', ['inv_h2_tm', 'inv_h2_st'])" id="inv_h2_pw">Poder</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'inv_h2_st', ['inv_h2_tm', 'inv_h2_pw'])" id="inv_h2_st">Stats</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'inv_h3')" id="inv_h3">H3</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'inv_h3_tm', ['inv_h3_pw', 'inv_h3_st'])" id="inv_h3_tm">Tiempo</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'inv_h3_pw', ['inv_h3_tm', 'inv_h3_st'])" id="inv_h3_pw">Poder</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'inv_h3_st', ['inv_h3_tm', 'inv_h3_pw'])" id="inv_h3_st">Stats</div></li></ul></li>
+                                        </ul>
+                                    </li>
+                                    <li><div class="node" onclick="unlockNode(this, 'cat_pas')" id="cat_pas">
+                                        <img src="https://cdn-icons-png.flaticon.com/512/32/32341.png" class="node-icon" alt="Pas">
+                                        <div>Pasivo</div></div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'pas_h1')" id="pas_h1">H1<span class="desc">Mejora</span></div></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'pas_h2')" id="pas_h2">H2<span class="desc">Mejora</span></div></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'pas_h3')" id="pas_h3">H3<span class="desc">Mejora</span></div></li>
+                                        </ul>
+                                    </li>
+                                    <li><div class="node" onclick="unlockNode(this, 'cat_arm')" id="cat_arm">
+                                        <img src="https://cdn-icons-png.flaticon.com/512/870/870191.png" class="node-icon" alt="Arm">
+                                        <div>Armamento</div></div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'arm_1')" id="arm_1">Armamento 1</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'arm_1_w', ['arm_1_a'])" id="arm_1_w">Arma</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'arm_1_a', ['arm_1_w'])" id="arm_1_a">Armadura</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'arm_2')" id="arm_2">Armamento 2</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'arm_2_w', ['arm_2_a'])" id="arm_2_w">Arma</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'arm_2_a', ['arm_2_w'])" id="arm_2_a">Armadura</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'arm_3')" id="arm_3">Armamento 3</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'arm_3_w', ['arm_3_a'])" id="arm_3_w">Arma</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'arm_3_a', ['arm_3_w'])" id="arm_3_a">Armadura</div></li></ul></li>
+                                        </ul>
+                                    </li>
+                                    <li><div class="node" onclick="unlockNode(this, 'cat_trans')" id="cat_trans">
+                                        <img src="https://cdn-icons-png.flaticon.com/512/6081/6081180.png" class="node-icon" alt="Trans">
+                                        <div>Transf.</div></div>
+                                        <ul><li><div class="node" onclick="unlockNode(this, 'tr_h1')" id="tr_h1">H1</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'tr_h1_t', ['tr_h1_g'])" id="tr_h1_t">Tiempo</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'tr_h1_g', ['tr_h1_t'])" id="tr_h1_g">Global</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'tr_h2')" id="tr_h2">H2</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'tr_h2_t', ['tr_h2_g'])" id="tr_h2_t">Tiempo</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'tr_h2_g', ['tr_h2_t'])" id="tr_h2_g">Global</div></li></ul></li>
+                                            <li><div class="node" onclick="unlockNode(this, 'tr_h3')" id="tr_h3">H3</div>
+                                                <ul><li><div class="node" onclick="tryUnlockMutual(this, 'tr_h3_t', ['tr_h3_g'])" id="tr_h3_t">Tiempo</div></li>
+                                                    <li><div class="node" onclick="tryUnlockMutual(this, 'tr_h3_g', ['tr_h3_t'])" id="tr_h3_g">Global</div></li></ul></li>
+                                        </ul>
+                                    </li>
+                                </ul>
+                            </li>
+                            
+                            <li><div class="node" onclick="unlockNode(this, 'new_base')" id="new_base">
+                                <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" class="node-icon" alt="New">
+                                <div>Nuevos Dones<span class="desc">Habla con Nox</span></div>
+                                </div>
+                                <ul>
+                                    <li><div class="node" onclick="unlockNode(this, 'new_1')" id="new_1">Reliquia Antiguo</div></li>
+                                    <li><div class="node" onclick="unlockNode(this, 'new_2')" id="new_2">Sangre Dragón</div></li>
+                                    <li><div class="node" onclick="unlockNode(this, 'new_3')" id="new_3">Alas Astrales</div></li>
+                                    <li><div class="node" onclick="unlockNode(this, 'new_4')" id="new_4">Corazón Titán</div></li>
+                                </ul>
+                            </li>
+                        </ul>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+    </div>
+
+    <div id="admin-panel">
+        <h1 class="admin-header">PANEL DE CONTROL DE MANDO (ADMIN)</h1>
+        <button onclick="location.reload()" style="background: var(--danger-red); width: auto; display:inline-block;">Cerrar Sesión</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Azul (Evo)</th>
+                    <th>Amarillo (Evo)</th>
+                    <th>Morado (???)</th>
+                    <th>Árbol</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="admin-user-list"></tbody>
+        </table>
+    </div>
+
+    <footer>
+        <div class="footer-content">
+            <img src="https://www.aguait.cat/wp-content/uploads/2017/10/Clark-Reading-the-Daily-Planet-.jpg" alt="Nox" class="footer-img">
+            <div>
+                <h3 style="margin:0; color: var(--neon-blue); font-size: 14px; letter-spacing: 2px;">CREADO POR NOX / DRYON</h3>
+                <small style="color: #aaa; font-size: 10px;">Powered by The Zero Point</small>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // --- 1. PEGA AQUÍ TU CONFIGURACIÓN DE FIREBASE ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCdQ3Cao35AeXLFsEZYqW2yWB6nd9fJon8",
+            authDomain: "arbol-240f2.firebaseapp.com",
+            databaseURL: "https://arbol-240f2-default-rtdb.firebaseio.com",
+            projectId: "arbol-240f2",
+            storageBucket: "arbol-240f2.firebasestorage.app",
+            messagingSenderId: "891396023772",
+            appId: "1:891396023772:web:12bee4e18fde7d3eeb1b19",
+            measurementId: "G-1X3E2P6PTS"
+        };
+
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        let currentUser = null;
+        let currentUserData = null;
+        let isAdminViewing = false; 
+
+        // MANEJO DE HISTORIAL (FLECHAS ATRAS/ADELANTE)
+        window.addEventListener('load', () => {
+            // Estado inicial al cargar
+            history.replaceState({page: 'login'}, "Login", "");
+        });
+
+        window.onpopstate = (event) => {
+            if(event.state) {
+                if(event.state.page === 'login') showLogin(false);
+                else if (event.state.page === 'tree') loadInterface(false); // false = no empujar otro estado
+                else if (event.state.page === 'admin') loadAdminPanel(false);
+            } else {
+                showLogin(false);
+            }
+        };
+
+        function scrollToLogin() {
+            document.getElementById('login-screen').scrollIntoView({ behavior: 'smooth' });
+        }
+
+        function showLogin(push = true) {
+            document.getElementById('intro-wrapper').style.display = 'block';
+            document.getElementById('main-interface').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'none';
+            document.getElementById('admin-back-btn').style.display = 'none';
+            if(push) history.pushState({page: 'login'}, "Login", "#login");
+            window.scrollTo(0,0);
+        }
+
+        // --- LOGIN ---
+        function handleLogin() {
+            const user = document.getElementById('username').value.trim().toLowerCase();
+            const pass = document.getElementById('password').value;
+
+            if (!user || !pass) return alert("Rellena datos");
+
+            // Buscar usuario en la Nube
+            db.ref('users/' + user).once('value', (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.val();
+                    if (data.password === pass) {
+                        enterSystem(data);
+                    } else {
+                        triggerGlitchError();
+                    }
+                } else {
+                    if(confirm("Usuario no existe. ¿Crear agente " + user + "?")) {
+                        const newUser = {
+                            username: user,
+                            password: pass,
+                            points: { blue:0, yellow:0, purple:0 },
+                            unlocked: ['root-node'],
+                            locked: []
+                        };
+                        db.ref('users/' + user).set(newUser);
+                        enterSystem(newUser);
+                    }
+                }
+            });
+        }
+
+        function enterSystem(data) {
+            currentUser = data.username;
+            currentUserData = data;
+            history.pushState({page: 'tree'}, "Árbol de Habilidades", "#tree");
+            loadInterface(false);
+
+            // ESCUCHAR CAMBIOS EN TIEMPO REAL
+            db.ref('users/' + currentUser).on('value', (snap) => {
+                if(snap.exists()){
+                    currentUserData = snap.val();
+                    updateHUD();
+                    renderTreeState();
+                }
+            });
+        }
+
+        // --- FUNCIÓN DE GLITCH ---
+        function triggerGlitchError() {
+            const overlay = document.getElementById('glitch-overlay');
+            const body = document.body;
+            overlay.style.display = 'flex';
+            body.classList.add('shake-screen');
+
+            // 5 SEGUNDOS
+            setTimeout(() => {
+                overlay.style.display = 'none';
+                body.classList.remove('shake-screen');
+            }, 5000);
+        }
+
+        function loadInterface(push = true) {
+            if(push) history.pushState({page: 'tree'}, "Árbol", "#tree");
+            
+            document.getElementById('intro-wrapper').style.display = 'none';
+            document.getElementById('main-interface').style.display = 'block';
+            document.getElementById('admin-panel').style.display = 'none'; 
+            
+            // Si entramos desde historial y no tenemos user cargado
+            if(!currentUser && !isAdminViewing) {
+                showLogin(false);
+                return;
+            }
+
+            document.getElementById('tree-username').innerText = currentUser;
+            document.getElementById('username-display').innerText = isAdminViewing ? "VISTA REMOTA: " + currentUser : "Agente: " + currentUser;
+            
+            updateHUD();
+            renderTreeState();
+        }
+
+        function updateHUD() {
+            if(!currentUserData) return;
+            document.getElementById('hud-blue').innerText = currentUserData.points.blue;
+            document.getElementById('hud-yellow').innerText = currentUserData.points.yellow;
+            document.getElementById('hud-purple').innerText = currentUserData.points.purple;
+        }
+
+        function renderTreeState() {
+            if(!currentUserData) return;
+            document.querySelectorAll('.node').forEach(el => el.classList.remove('unlocked', 'locked-forever'));
+            if(currentUserData.unlocked) {
+                currentUserData.unlocked.forEach(id => {
+                    let el = document.getElementById(id);
+                    if(el) el.classList.add('unlocked');
+                });
+            }
+            if(currentUserData.locked) {
+                currentUserData.locked.forEach(id => {
+                    let el = document.getElementById(id);
+                    if(el) el.classList.add('locked-forever');
+                });
+            }
+        }
+
+        // --- ACCIONES DEL ÁRBOL (Guardan en la Nube) ---
+        function unlockNode(el, id) {
+            if(isAdminViewing) return alert("Modo espectador. No puedes comprar.");
+            if(!currentUserData) return;
+
+            if(currentUserData.unlocked && currentUserData.unlocked.includes(id)) return;
+            if(currentUserData.locked && currentUserData.locked.includes(id)) return alert("Bloqueado");
+
+            if(currentUserData.points.yellow > 0) {
+                if(confirm("¿Gastar 1 punto?")) {
+                    let newPoints = currentUserData.points.yellow - 1;
+                    let newUnlocked = currentUserData.unlocked ? [...currentUserData.unlocked, id] : [id];
+                    
+                    db.ref('users/' + currentUser).update({
+                        'points/yellow': newPoints,
+                        'unlocked': newUnlocked
+                    });
+                }
+            } else {
+                alert("Faltan puntos");
+            }
+        }
+        
+        function tryUnlockMutual(el, myId, rivals) {
+            if(isAdminViewing) return alert("Modo espectador.");
+            if(!currentUserData) return;
+
+            if(currentUserData.unlocked && currentUserData.unlocked.includes(myId)) return;
+            
+            let isLocked = false;
+            if(currentUserData.unlocked) {
+                rivals.forEach(r => { if(currentUserData.unlocked.includes(r)) isLocked = true; });
+            }
+            if(isLocked) return alert("Ya elegiste el otro camino");
+
+            if(currentUserData.points.yellow > 0) {
+                if(confirm("Elección permanente. ¿Seguro?")) {
+                    let newPoints = currentUserData.points.yellow - 1;
+                    let newUnlocked = currentUserData.unlocked ? [...currentUserData.unlocked, myId] : [myId];
+                    let newLocked = currentUserData.locked ? [...currentUserData.locked, ...rivals] : rivals;
+
+                    db.ref('users/' + currentUser).update({
+                        'points/yellow': newPoints,
+                        'unlocked': newUnlocked,
+                        'locked': newLocked
+                    });
+                }
+            } else {
+                alert("Faltan puntos");
+            }
+        }
+
+        // --- STAFF / ADMIN ---
+        function checkStaffCode(e) {
+            if(e.key === 'Enter') {
+                if(document.getElementById('staff-code-input').value === "StaffBuclEvoPuntNad") {
+                    loadAdminPanel();
+                    document.getElementById('staff-code-input').value = "";
+                } else {
+                    alert("Acceso Denegado");
+                }
+            }
+        }
+
+        function loadAdminPanel(push = true) {
+            if(push) history.pushState({page: 'admin'}, "Admin", "#admin");
+
+            document.getElementById('intro-wrapper').style.display = 'none';
+            document.getElementById('main-interface').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+
+            db.ref('users').on('value', (snapshot) => {
+                const list = document.getElementById('admin-user-list');
+                list.innerHTML = '';
+                snapshot.forEach((childSnapshot) => {
+                    const u = childSnapshot.val();
+                    const key = childSnapshot.key; 
+                    
+                    let row = `<tr>
+                        <td>${u.username}</td>
+                        <td>
+                            A:${u.points.blue} | Am:${u.points.yellow} | M:${u.points.purple} <br>
+                            <button class="btn-admin btn-plus" onclick="adminMod('${key}', 'blue', 1)">+Azul</button>
+                            <button class="btn-admin btn-plus" onclick="adminMod('${key}', 'yellow', 1)">+Amarillo</button>
+                            <button class="btn-admin btn-plus" onclick="adminMod('${key}', 'purple', 1)">+Morado</button>
+                        </td>
+                        <td>
+                             A:${u.points.blue} | Am:${u.points.yellow} | M:${u.points.purple} <br>
+                            <button class="btn-admin btn-minus" onclick="adminMod('${key}', 'blue', -1)">-Azul</button>
+                            <button class="btn-admin btn-minus" onclick="adminMod('${key}', 'yellow', -1)">-Amarillo</button>
+                            <button class="btn-admin btn-minus" onclick="adminMod('${key}', 'purple', -1)">-Morado</button>
+                        </td>
+                        <td><button class="btn-admin btn-view" onclick="viewUserTree('${key}')">Ver Árbol</button></td>
+                        <td><button class="btn-admin btn-del" onclick="adminDel('${key}')">Borrar</button></td>
+                    </tr>`;
+                    list.innerHTML += row;
+                });
+            });
+        }
+
+        window.adminMod = function(userKey, type, val) {
+            db.ref('users/' + userKey + '/points/' + type).transaction((current) => {
+                return (current || 0) + val;
+            });
+        }
+
+        window.adminDel = function(userKey) {
+            if(confirm("Borrar " + userKey + "?")) {
+                db.ref('users/' + userKey).remove();
+            }
+        }
+
+        window.viewUserTree = function(userKey) {
+            db.ref('users/' + userKey).once('value', (snapshot) => {
+                if(snapshot.exists()){
+                    const data = snapshot.val();
+                    currentUser = data.username;
+                    currentUserData = data;
+                    isAdminViewing = true;
+
+                    document.getElementById('admin-panel').style.display = 'none';
+                    document.getElementById('main-interface').style.display = 'block';
+                    document.getElementById('admin-back-btn').style.display = 'block';
+                    
+                    document.getElementById('tree-username').innerText = currentUser;
+                    document.getElementById('username-display').innerText = "VISTA REMOTA: " + currentUser;
+                    
+                    updateHUD();
+                    renderTreeState();
+                }
+            });
+        };
+
+        function exitViewMode() {
+            isAdminViewing = false;
+            currentUser = null;
+            document.getElementById('main-interface').style.display = 'none';
+            document.getElementById('admin-back-btn').style.display = 'none';
+            document.getElementById('admin-panel').style.display = 'block';
+        }
+
+    </script>
+</body>
+</html>
